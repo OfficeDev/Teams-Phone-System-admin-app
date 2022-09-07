@@ -200,5 +200,9 @@ $outputsData = [ordered]@{
     AzFunctionIPs = $outputs.Outputs.outboundIpAddresses.Value
 }
 
+#Disconnecting from Azure and AzureAD
+Disconnect-AzAccount
+Disconnect-AzureAD
+
 write-host -ForegroundColor magenta "Here are the information you'll need to deploy and configure the Power Application"
 $outputsData
