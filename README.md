@@ -55,7 +55,7 @@ Here is the application running in Microsoft Teams
 - Azure Subscription and account with contributor role (to deploy resources)
 - Power App license to deploy the application and Power Automate flows
 - The following PowerShell modules needs to be installed prior to the execution of the PShell script:
-   - Microsoft Teams - https://docs.microsoft.com/en-us/MicrosoftTeams/teams-powershell-install - Solution built and tested with v4.0.0
+   - Microsoft Teams - https://docs.microsoft.com/en-us/MicrosoftTeams/teams-powershell-install - Solution built and tested with v4.7.0
    - Azure Az - https://docs.microsoft.com/en-us/powershell/azure/install-az-ps - Solution built and tested with v7.3.2
 
 Note: in this deployment, we assume that the same user has the appropriate permissions to deploy the resources on Azure, Power Platform and Azure AD. This is however not mandatory and the deployment can be split across these different roles and responsabilities within the organization.

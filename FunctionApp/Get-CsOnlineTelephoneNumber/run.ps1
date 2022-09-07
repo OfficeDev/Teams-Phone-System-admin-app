@@ -18,7 +18,7 @@ $Account = $env:AdminAccountLogin
 $PWord = ConvertTo-SecureString -String $env:AdminAccountPassword -AsPlainText -Force
 $Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Account, $PWord
 
-$MSTeamsDModuleLocation = ".\Modules\MicrosoftTeams\4.0.0\MicrosoftTeams.psd1"
+$MSTeamsDModuleLocation = ".\Modules\MicrosoftTeams\4.7.0\MicrosoftTeams.psd1"
 Import-Module $MSTeamsDModuleLocation
 
 Try {
@@ -33,7 +33,8 @@ Catch {
 # Get unassigned telephone numbers
 If ($StatusCode -eq [HttpStatusCode]::OK) {
     Try {
-        $Resp = Get-CsOnlineTelephoneNumber -IsNotAssigned -InventoryType Subscriber -ErrorAction:Stop | Select-Object -Property Id,@{Name='Number';Expression={"+" + [string]$_.Id}},CityCode,@{Name='Country';Expression={If((-not([string]::IsNullOrEmpty($_.CityCode)))){($_.CityCode -Split "-")[1]}Else{$null}}},ActivationState
+        # $Resp = Get-CsOnlineTelephoneNumber -IsNotAssigned -InventoryType Subscriber -ErrorAction:Stop | Select-Object -Property Id,@{Name='Number';Expression={"+" + [string]$_.Id}},CityCode,@{Name='Country';Expression={If((-not([string]::IsNullOrEmpty($_.CityCode)))){($_.CityCode -Split "-")[1]}Else{$null}}},ActivationState
+        $Resp = Get-CsPhoneNumberAssignment -NumberType CallingPlan -CapabilitiesContain UserAssignment -PstnAssignmentStatus Unassigned -ErrorAction:Stop | Select-Object -Property @{Name='Id';Expression={[string]$_.TelephoneNumber}},@{Name='Number';Expression={[string]$_.TelephoneNumber}},CityCode,@{Name='Country';Expression={[string]$_.IsoCountryCode}},ActivationState
         If ([string]::IsNullOrEmpty($Location)){
             $Resp = $Resp |  ConvertTo-Json
         }
