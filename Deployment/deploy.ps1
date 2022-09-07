@@ -22,7 +22,38 @@ Import-Module Az.Accounts, Az.Resources, Az.KeyVault   # Required to deploy the 
 
 # Connect to AzureAD and Azure using modern authentication
 write-host -ForegroundColor blue "Azure sign-in request - Please check the sign-in window opened in your web browser"
-Connect-AzAccount
+Try
+{
+    Connect-AzAccount -WarningAction Ignore -ErrorAction Stop |Out-Null
+}
+Catch
+{
+    Write-Error "An error occured connecting to Azure using the Azure PowerShell module"
+    $_.Exception.Message
+}
+
+# Validating if multiple Azure Subscriptions are active
+If($subscriptionID -eq $null)
+{
+    [array]$AzSubscriptions = Get-AzSubscription |Where-Object {$_.State -eq "Enabled"}
+    $menu = @{}
+    If($(Get-AzSubscription |Where-Object {$_.State -eq "Enabled"}).Count -gt 1)
+    {
+        Write-Host "Multiple active Azure Subscriptions found, please select a subscription from the list below:"
+        for ($i=1;$i -le $AzSubscriptions.count; $i++) 
+        { 
+                Write-Host "$i. $($AzSubscriptions[$i-1].Id)" 
+                $menu.Add($i,($AzSubScriptions[$i-1].Id))
+        }
+        [int]$AZSelectedSubscription = Read-Host 'Enter selection'
+        $selection = $menu.Item($AZSelectedSubscription) ; 
+        Select-AzSubscription -Subscription $selection | Out-Null
+    }
+}
+else
+{
+    Select-AzSubscription -Subscription $subscriptionID | Out-Null
+}
 
 # Auto-connect to AzureAD using Azure connection context
 $context = [Microsoft.Azure.Commands.Common.Authentication.Abstractions.AzureRmProfileProvider]::Instance.Profile.DefaultContext
@@ -93,16 +124,42 @@ If ($outputs.provisioningState -ne 'Succeeded') {
 }
 write-host -ForegroundColor blue "ARM template deployed successfully"
 
-# Assign current user with the permissions to list and read Azure KeyVault secrets (to enable the connection with the Power Automate flow)
+# Getting UPN from connected user
 $CurrentUserId = Get-AzContext | ForEach-Object account | ForEach-Object Id
-write-host -ForegroundColor blue "Assigning 'Secrets List & Get' policy on Azure KeyVault for user $CurrentUserId"
-Try {
-    Set-AzKeyVaultAccessPolicy -VaultName $outputs.Outputs.azKeyVaultName.Value -ResourceGroupName $rgName -UserPrincipalName $CurrentUserId -PermissionsToSecrets list,get
+
+if($CurrentUserId -ne $serviceAccountUPN)
+{
+    # Assign current user with the permissions to list and read Azure KeyVault secrets (to enable the connection with the Power Automate flow)
+    Write-Host -ForegroundColor blue "Assigning 'Secrets List & Get' policy on Azure KeyVault for user $CurrentUserId"
+    Try {
+        Set-AzKeyVaultAccessPolicy -VaultName $outputs.Outputs.azKeyVaultName.Value -ResourceGroupName $rgName -UserPrincipalName $CurrentUserId -PermissionsToSecrets list,get
+    }
+    Catch {
+        Write-Error "Error - Couldn't assign user permissions to get,list the KeyVault secrets - Please review detailed error message below"
+        $_.Exception.Message
+    }
+
+    # Assign service account with the permissions to list and read Azure KeyVault secrets (to enable the connection with the Power Automate flow)
+    Write-Host -ForegroundColor blue "Assigning 'Secrets List & Get' policy on Azure KeyVault for user $serviceAccountUPN"
+    Try {
+        Set-AzKeyVaultAccessPolicy -VaultName $outputs.Outputs.azKeyVaultName.Value -ResourceGroupName $rgName -UserPrincipalName $CurrentUserId -PermissionsToSecrets list,get
+    }
+    Catch {
+        Write-Error "Error - Couldn't assign user permissions to get,list the KeyVault secrets - Please review detailed error message below"
+        $_.Exception.Message
+    }    
 }
-Catch {
-    Write-Error "Error - Couldn't assign user permissions to get,list the KeyVault secrets - Please review detailed error message below"
-    $_.Exception.Message
-    return
+else
+{
+    # Assign service account with the permissions to list and read Azure KeyVault secrets (to enable the connection with the Power Automate flow)
+    Write-Host -ForegroundColor blue "Assigning 'Secrets List & Get' policy on Azure KeyVault for user $serviceAccountUPN"
+    Try {
+        Set-AzKeyVaultAccessPolicy -VaultName $outputs.Outputs.azKeyVaultName.Value -ResourceGroupName $rgName -UserPrincipalName $CurrentUserId -PermissionsToSecrets list,get
+    }
+    Catch {
+        Write-Error "Error - Couldn't assign user permissions to get,list the KeyVault secrets - Please review detailed error message below"
+        $_.Exception.Message
+    }
 }
 
 write-host -ForegroundColor blue "Getting the Azure Function App key for warm-up test"
@@ -142,6 +199,10 @@ $outputsData = [ordered]@{
     KeyVault_Name = $outputs.Outputs.AzKeyVaultName.Value
     AzFunctionIPs = $outputs.Outputs.outboundIpAddresses.Value
 }
+
+#Disconnecting from Azure and AzureAD
+Disconnect-AzAccount
+Disconnect-AzureAD
 
 write-host -ForegroundColor magenta "Here are the information you'll need to deploy and configure the Power Application"
 $outputsData
